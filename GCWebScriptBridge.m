@@ -105,7 +105,7 @@
 
 + (GCWebScriptBridge*)groovifyThisConfig:(WKWebViewConfiguration*)configuration {
     for (NSString *script in configuration.userContentController.userScripts) {
-        if ([script isEqual:@"groovyAPI"]) {
+        if ([script isEqualToString:@"groovyAPI"]) {
             return nil;
         }
     }
