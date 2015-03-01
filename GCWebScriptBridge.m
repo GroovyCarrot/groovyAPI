@@ -7,32 +7,103 @@
 
 @implementation GCWebScriptBridge
 
--(void)userContentController:(WKUserContentController*)controller didReceiveScriptMessage:(WKScriptMessage *)message {
-    if (![message.body isKindOfClass:[NSDictionary class]] || !message.body[@"action"] || !message.body[@"callback"] || ![message.body[@"action"] isKindOfClass:[NSDictionary class]]) {
+- (void)userContentController:(WKUserContentController*)controller didReceiveScriptMessage:(WKScriptMessage *)message {
+    if (![message.body isKindOfClass:[NSDictionary class]] || !message.body[@"action"] || !message.body[@"callback"]) {
         return;
     }
 
-    NSLog(@"[GroovyCarrot] groovyAPI (%p) received message %@", self.view, message.body[@"action"]);
+    NSString *_method;
+    SEL selector;
 
-    if (message.body[@"action"][@"read"]) {
-        NSString *_file = [message.body[@"action"][@"read"] stringByReplacingOccurrencesOfString:@"../" withString:@""];
-        _file = [@"/var/mobile/Documents/" stringByAppendingString:_file];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:_file]) {
-            NSError *error;
-            NSString *file = [[NSString stringWithContentsOfFile:_file encoding:NSUTF8StringEncoding error:&error] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    if ([message.body[@"action"] isKindOfClass:objc_getClass("NSString")]) {
+        void (*perform_action)(id, SEL, NSString *callback);
 
-            if (file) {
-                NSString *javascript = [NSString stringWithFormat:@"%@(decodeURIComponent(\"%@\"));", message.body[@"callback"], file];
-                [self.view evaluateJavaScript:javascript completionHandler:nil];
-            }
-            else {
-                NSLog(@"[GroovyCarrot] groovyAPI (%p) failed to read file %@: %@", self, _file, error.description);
-            }
+        _method = [NSString stringWithFormat:@"%@_callback:", message.body[@"action"]];
+
+        selector = NSSelectorFromString(_method);
+        if (![self respondsToSelector:selector]) {
+            return;
         }
+
+        NSLog(@"[GroovyCarrot] groovyAPI (%p) %@[%@]", self.view, _method, message.body[@"callback"]);
+
+        perform_action = (void (*)(id, SEL, NSString *callback)) [self methodForSelector:selector];
+        perform_action(self, selector, message.body[@"callback"]);
+        return;
+    }
+
+    if (![message.body[@"action"] isKindOfClass:objc_getClass("NSDictionary")]) {
+        return;
+    }
+
+    void (*perform_action)(id, SEL, NSString *arg, NSString *callback);
+    NSDictionary *action = message.body[@"action"];
+
+    if (action.allKeys.count < 1) {
+        return;
+    }
+
+    for (NSString *key in action.allKeys) {
+        _method = [NSString stringWithFormat:@"%@:callback:", key];
+        selector = NSSelectorFromString(_method);
+        if (![self respondsToSelector:selector]) {
+            continue;
+        }
+
+        NSLog(@"[GroovyCarrot] groovyAPI (%p) %@[%@, %@]", self.view, _method, action[key], message.body[@"callback"]);
+
+        perform_action = (void (*)(id, SEL, NSString *arg, NSString *callback)) [self methodForSelector:selector];
+        perform_action(self, selector, action[key], message.body[@"callback"]);
     }
 }
 
-+(GCWebScriptBridge*)groovifyThisConfig:(WKWebViewConfiguration*)configuration {
+- (void)eval:(NSString*)js {
+    [self.view evaluateJavaScript:js completionHandler:nil];
+}
+
+- (void)read:(NSString*)_file callback:(NSString*)_callback {
+    NSLog(@"[GroovyCarrot] groovyAPI (%p) reading file", _file);
+
+    _file = [_file stringByReplacingOccurrencesOfString:@"../" withString:@""];
+    _file = [@"/var/mobile/Documents/" stringByAppendingString:_file];
+
+    if (![[NSFileManager defaultManager] fileExistsAtPath:_file]) {
+        return;
+    }
+
+    NSError *error;
+    NSString *file = [[NSString stringWithContentsOfFile:_file encoding:NSUTF8StringEncoding error:&error] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+
+    if (file) {
+        NSString *javascript = [NSString stringWithFormat:@"%@(decodeURIComponent(\"%@\"));", _callback, file];
+        [self eval:javascript];
+    }
+    else {
+        NSLog(@"[GroovyCarrot] groovyAPI (%p) failed to read file %@: %@", self, _file, error.description);
+    }
+}
+
+- (void)getWidgetWeather_callback:(NSString*)_callback {
+    NSString *wwDataString = [NSString stringWithContentsOfFile:@"/var/mobile/Documents/widgetweather.xml" encoding:NSUTF8StringEncoding error:nil];
+    if (!wwDataString) {
+        return;
+    }
+
+    NSError *err;
+    NSDictionary *wwData = [XMLReader dictionaryForXMLString:wwDataString error:&err];
+
+    if (!err) {
+        NSString *javascript;
+        javascript = [[NSString alloc] initWithData:[NSJSONSerialization dataWithJSONObject:wwData options:nil error:nil] encoding:NSUTF8StringEncoding];
+        javascript = [NSString stringWithFormat:@"%@(%@);", _callback, javascript];
+        [self eval:javascript];
+    }
+    else {
+        NSLog(@"[GroovyCarrot] groovyAPI (%p) could not read in XML: %@", self.view, err.description);
+    }
+}
+
++ (GCWebScriptBridge*)groovifyThisConfig:(WKWebViewConfiguration*)configuration {
     for (NSString *script in configuration.userContentController.userScripts) {
         if ([script isEqual:@"groovyAPI"]) {
             return nil;

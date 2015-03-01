@@ -1,0 +1,3 @@
+[submodule "XMLReader"]
+	path = XMLReader
+	url = https://github.com/amarcadet/XMLReader

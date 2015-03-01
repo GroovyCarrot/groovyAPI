@@ -7,6 +7,7 @@
 #import <mach/mach.h>
 #import <substrate.h>
 #import <WebKit/WebKit.h>
+#import <XMLReader.h>
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
