@@ -32,11 +32,10 @@ using the public WebKit API. Namely, the main issues preventing public release a
   already by implementing the below JS function to read a file from the Documents
   directory.
   ```javascript
-  groovyAPI.do({
-    'action': {
-      'read': 'widgetweather.xml'
-    }
-  });
+  groovyAPI.do(
+    {'read': 'widgetweather.xml'},
+    function(data) {}
+  );
   ```
   While this does provide a solution to the problem, it's not ideal. This means every
   theme that reads a file needs to be rewritten to use this function in order to work.
