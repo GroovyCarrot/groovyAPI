@@ -31,12 +31,14 @@ using the public WebKit API. Namely, the main issues preventing public release a
   the version of WebKit bundled on iOS 8. This bug is worked around in this project
   already by implementing the below JS function to read a file from the Documents
   directory.
-  ```javascript
-  groovyAPI.do(
-    {'read': 'widgetweather.xml'},
-    function(data) {}
-  );
-  ```
+```javascript
+groovyAPI.do(
+  {'read': 'widgetweather.xml'},
+  function(data) {
+    // handle data.
+  }
+);
+```
   While this does provide a solution to the problem, it's not ideal. This means every
   theme that reads a file needs to be rewritten to use this function in order to work.
 
